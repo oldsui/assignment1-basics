@@ -1,3 +1,7 @@
+# ref: 
+# - https://github.com/DhyeyMavani2003/stanford-cs336-assignment1-basics-solution/tree/main/cs336_basics
+# - https://dhyeymavani.com/teaching/stanford-cs336-language-modeling-from-scratch
+
 import os
 import regex as re
 from typing import Dict, List, Tuple, Union
@@ -22,12 +26,12 @@ def train_bpe(
         
     Returns:
         Tuple of (vocab, merges) where:
-        - vocab: Dict mapping token IDs to their byte representations
-        - merges: List of merge operations (pairs of bytes that were merged)
+        - vocab: Dict mapping token IDs to tokens (in utf-8 bytes)
+        - merges: List of merge operations (pairs of bytes that were merged chronologically during training)
     """
     input_path = Path(input_path)
     
-    # Step 1: Initialize vocabulary with special tokens and all bytes
+    # Step 1: Initialize vocabulary with special tokens and all byte values (0-255)
     vocab = {}
     next_id = 0
     
@@ -49,53 +53,51 @@ def train_bpe(
     # Split on special tokens to prevent cross-boundary merging
     text_parts = _split_on_special_tokens(text, special_tokens)
     
-    # Pre-tokenize and count word frequencies
+    # Each word is a tuple of tokens. 
+    # Each token is a byte or a byte sequence as outcome of BPE process
     word_freqs = Counter()
+
+    # Pre-tokenize and initialize word frequencies. 
     for part in text_parts:
         if part in special_tokens:
             # Skip special tokens during pre-tokenization
             continue
         else:
             # Apply regex pre-tokenization
-            pretokens = re.findall(PAT, part)
+            pretokens = re.finditer(PAT, part)
             for pretoken in pretokens:
+                # Extract the matched string text using .group()
+                pretoken_text = pretoken.group()
                 # Convert to tuple of bytes objects (not individual byte values)
-                byte_tuple = tuple(bytes([b]) for b in pretoken.encode('utf-8'))
+                byte_tuple = tuple(bytes([b]) for b in pretoken_text.encode('utf-8'))
                 word_freqs[byte_tuple] += 1
     
     print(f"Found {len(word_freqs)} unique pre-tokens")
     
     # Step 3: Perform BPE merges
-    num_merges = vocab_size - len(vocab)
+    max_num_merges = vocab_size - len(vocab)
     merges = []
     
-    print(f"Performing {num_merges} BPE merges...")
+    print(f"Performing {max_num_merges} BPE merges...")
     
-    for merge_idx in range(num_merges):
+    for merge_idx in range(max_num_merges):
         # Count all adjacent byte pairs
-        pair_counts = _count_pairs(word_freqs)
-        
-        if not pair_counts:
-            print(f"No more pairs to merge after {merge_idx} merges")
-            break
+        token_pair_counts = _count_token_pairs(word_freqs)
         
         # Find most frequent pair (lexicographic tiebreaking)
-        most_frequent_pair = max(pair_counts.items(), key=lambda x: (x[1], x[0]))[0]
+        most_frequent_token_pair = max(token_pair_counts.items(), key=lambda x: (x[1], x[0]))[0]
         
-        # Record this merge (pairs should be bytes objects)
-        merge_bytes = (most_frequent_pair[0], most_frequent_pair[1])
-        merges.append(merge_bytes)
+        # Record this merge
+        merge_tokens = (most_frequent_token_pair[0], most_frequent_token_pair[1])
+        merges.append(merge_tokens)
         
-        # Create new merged token
-        new_token = most_frequent_pair[0] + most_frequent_pair[1]
+        # Create new merged token: concatenation of 2 tokens' byte sequences
+        new_token = most_frequent_token_pair[0] + most_frequent_token_pair[1]
         vocab[next_id] = new_token
         next_id += 1
         
         # Update word frequencies by merging the pair
-        word_freqs = _merge_pair_in_words(word_freqs, most_frequent_pair, new_token)
-        
-        if (merge_idx + 1) % 50 == 0:
-            print(f"Completed {merge_idx + 1} merges...")
+        word_freqs = _merge_pair_in_words(word_freqs, most_frequent_token_pair, new_token)
     
     print(f"BPE training completed. Final vocab size: {len(vocab)}")
     
@@ -118,7 +120,7 @@ def _split_on_special_tokens(text: str, special_tokens: List[str]) -> List[str]:
     return [part for part in parts if part]
 
 
-def _count_pairs(word_freqs: Dict[Tuple[bytes, ...], int]) -> Counter:
+def _count_token_pairs(word_freqs: Dict[Tuple[bytes, ...], int]) -> Counter:
     """Count all adjacent byte pairs across all words."""
     pair_counts = Counter()
     
@@ -136,7 +138,10 @@ def _merge_pair_in_words(
     pair: Tuple[bytes, bytes], 
     new_token: bytes
 ) -> Dict[Tuple[bytes, ...], int]:
-    """Merge a specific pair in all words and return updated frequencies."""
+    """
+    Merge a specific pair in all words and return updated frequencies.
+    Essentially update the key of the word_freqs dict, s.t. each word has a new representation of tokens
+    """
     new_word_freqs = {}
     
     for word, freq in word_freqs.items():
@@ -287,14 +292,14 @@ class Tokenizer:
         
         # Start with individual bytes
         pairs = []
-        word = [bytes([b]) for b in word_bytes]
+        bpe_word_bytes = [bytes([b]) for b in word_bytes]
         
         # Repeatedly find and apply the highest priority merge
         while True:
             # Find all adjacent pairs
             pairs = []
-            for i in range(len(word) - 1):
-                pairs.append((word[i], word[i + 1], i))
+            for i in range(len(bpe_word_bytes) - 1):
+                pairs.append((bpe_word_bytes[i], bpe_word_bytes[i + 1], i))
             
             if not pairs:
                 break
@@ -315,18 +320,18 @@ class Tokenizer:
                 
             # Apply the best merge
             a, b, pos = best_pair
-            new_word = []
+            new_bpe_word_bytes = []
             i = 0
-            while i < len(word):
+            while i < len(bpe_word_bytes):
                 if i == pos:
-                    new_word.append(a + b)
+                    new_bpe_word_bytes.append(a + b)
                     i += 2  # Skip the next element since we merged
                 else:
-                    new_word.append(word[i])
+                    new_bpe_word_bytes.append(bpe_word_bytes[i])
                     i += 1
-            word = new_word
+            bpe_word_bytes = new_bpe_word_bytes
         
-        return word
+        return bpe_word_bytes
     
     def encode(self, text: str) -> List[int]:
         """

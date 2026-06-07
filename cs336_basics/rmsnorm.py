@@ -43,29 +43,29 @@ class RMSNorm(nn.Module):
         nn.init.ones_(self.weight)
 
     
-    def forward(self, x: torch.Tensor) -> torch.Tensor:
+    def forward(self, a: torch.Tensor) -> torch.Tensor:
         """
         Apply RMSNorm to the input tensor.
         
         Args:
-            x: Input tensor of shape (..., d_model)
+            a: Input tensor of shape (..., d_model)
             
         Returns:
             Normalized tensor of the same shape as input
         """
         # Store original dtype for later restoration
-        in_dtype = x.dtype
+        in_dtype = a.dtype
         
         # Upcast to float32 to prevent overflow when squaring
-        x = x.to(torch.float32)
+        a = a.to(torch.float32)
         
         # Calculate RMS along the last dimension (d_model)
         # RMS(a) = sqrt(1/d_model * sum(a_i^2) + eps)
-        variance = x.pow(2).mean(dim=-1, keepdim=True)
+        variance = a.pow(2).mean(dim=-1, keepdim=True)
         rms = torch.sqrt(variance + self.eps)
         
-        # Apply RMSNorm: x_i / RMS(x) * g_i
-        normalized = x / rms
+        # Apply RMSNorm: a_i / RMS(a) * g_i
+        normalized = a / rms
         
         # Apply learnable gain parameters
         result = normalized * self.weight

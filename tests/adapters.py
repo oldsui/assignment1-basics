@@ -185,7 +185,28 @@ def run_multihead_self_attention(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    from cs336_basics.mha import MultiHeadSelfAttention
+    
+    # Create the attention module
+    seq_len = in_features.shape[-2]
+    mha = MultiHeadSelfAttention(
+        d_model=d_model,
+        num_heads=num_heads,
+        max_seq_len=max(seq_len, 2048),  # Ensure large enough for the sequence
+        use_rope=False,
+        device=in_features.device,
+        dtype=in_features.dtype
+    )
+    
+    # Load the weights into the module
+    # The weights come as individual head weights that need to be concatenated
+    mha.q_proj.weight.data = q_proj_weight
+    mha.k_proj.weight.data = k_proj_weight
+    mha.v_proj.weight.data = v_proj_weight
+    mha.o_proj.weight.data = o_proj_weight
+    
+    # Apply the attention
+    return mha(in_features)
 
 
 def run_multihead_self_attention_with_rope(
@@ -225,7 +246,28 @@ def run_multihead_self_attention_with_rope(
         Float[Tensor, " ... sequence_length d_model"]: Tensor with the output of running your optimized, batched multi-headed attention
         implementation with the given QKV projection weights and input features.
     """
-    raise NotImplementedError
+    from cs336_basics.mha import MultiHeadSelfAttention
+    
+    # Create the attention module with RoPE enabled
+    seq_len = in_features.shape[-2]
+    mha = MultiHeadSelfAttention(
+        d_model=d_model,
+        num_heads=num_heads,
+        max_seq_len=max_seq_len,
+        theta=theta,
+        use_rope=True,
+        device=in_features.device,
+        dtype=in_features.dtype
+    )
+    
+    # Load the weights into the module
+    mha.q_proj.weight.data = q_proj_weight
+    mha.k_proj.weight.data = k_proj_weight
+    mha.v_proj.weight.data = v_proj_weight
+    mha.o_proj.weight.data = o_proj_weight
+    
+    # Apply the attention with token positions
+    return mha(in_features, token_positions)
 
 
 def run_rope(

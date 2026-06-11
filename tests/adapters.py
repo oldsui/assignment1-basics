@@ -481,7 +481,36 @@ def run_transformer_lm(
         Float[Tensor, "batch_size sequence_length vocab_size"]: Tensor with the predicted unnormalized
         next-word distribution for each token.
     """
-    raise NotImplementedError
+    from cs336_basics.language_model import TransformerLM
+    
+    # Create the Transformer LM
+    model = TransformerLM(
+        vocab_size=vocab_size,
+        context_length=context_length,
+        d_model=d_model,
+        num_layers=num_layers,
+        num_heads=num_heads,
+        d_ff=d_ff,
+        theta=rope_theta,
+        device=in_indices.device,
+        dtype=torch.float32
+    )
+    
+    # Prepare state dict for loading
+    # Need to handle the key naming differences between test and our implementation
+    state_dict = {}
+    for key, weight in weights.items():
+        if "attn.output_proj.weight" in key:
+            # Replace "output_proj" with "o_proj" in the key
+            new_key = key.replace("attn.output_proj.weight", "attn.o_proj.weight")
+            state_dict[new_key] = weight
+        else:
+            state_dict[key] = weight
+    
+    model.load_state_dict(state_dict)
+    
+    # Run forward pass
+    return model(in_indices)
 
 
 def run_rmsnorm(

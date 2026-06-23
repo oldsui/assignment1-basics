@@ -129,3 +129,69 @@ def cross_entropy(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
     
     # Return the average loss across the batch
     return torch.mean(losses)
+
+
+def cosine_lr_schedule(
+    it: int,
+    max_learning_rate: float,
+    min_learning_rate: float,
+    warmup_iters: int,
+    cosine_cycle_iters: int,
+) -> float:
+    """
+    Cosine annealing learning rate schedule with linear warmup.
+    
+    Args:
+        it: Current iteration number
+        max_learning_rate: Maximum learning rate (α_max)
+        min_learning_rate: Minimum learning rate (α_min)
+        warmup_iters: Number of warmup iterations (T_w)
+        cosine_cycle_iters: Number of cosine annealing iterations (T_c)
+    
+    Returns:
+        Learning rate at iteration it
+    """
+    if it < warmup_iters:
+        # Warmup phase: linear increase from 0 to max_learning_rate
+        return (it / warmup_iters) * max_learning_rate
+    elif it <= cosine_cycle_iters:
+        # Cosine annealing phase
+        progress = (it - warmup_iters) / (cosine_cycle_iters - warmup_iters)
+        return min_learning_rate + 0.5 * (max_learning_rate - min_learning_rate) * (
+            1 + math.cos(progress * math.pi)
+        )
+    else:
+        # Post-annealing phase: constant minimum learning rate
+        return min_learning_rate
+
+
+def gradient_clipping(parameters, max_l2_norm: float) -> None:
+    """
+    Clip gradients to have L2 norm at most max_l2_norm.
+    
+    Args:
+        parameters: Iterable of parameters with gradients
+        max_l2_norm: Maximum L2 norm for gradients
+    """
+    eps = 1e-6  # PyTorch default for numerical stability
+    
+    # Collect all gradients
+    gradients = []
+    for param in parameters:
+        if param.grad is not None:
+            gradients.append(param.grad)
+    
+    if not gradients:
+        return
+    
+    # Compute total L2 norm of all gradients
+    total_norm = 0.0
+    for grad in gradients:
+        total_norm += grad.norm().item() ** 2
+    total_norm = total_norm ** 0.5
+    
+    # Apply clipping if necessary
+    if total_norm > max_l2_norm:
+        clip_coef = max_l2_norm / (total_norm + eps)
+        for grad in gradients:
+            grad.mul_(clip_coef)

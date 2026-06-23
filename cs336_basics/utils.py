@@ -84,3 +84,48 @@ def softmax(input: torch.Tensor, dim: int) -> torch.Tensor:
     # Return the normalized probabilities
     return exp_values / exp_sum
 
+
+def cross_entropy(logits: torch.Tensor, targets: torch.Tensor) -> torch.Tensor:
+    """
+    Compute cross-entropy loss with numerical stability.
+    
+    Computes the cross-entropy loss ℓ = -log(softmax(logits)[targets])
+    for each example, then returns the average across the batch.
+    
+    Uses numerical stability tricks:
+    - Subtracts the maximum logit value to prevent overflow
+    - Cancels log and exp where possible to avoid computing full softmax
+    
+    Args:
+        logits: Tensor of shape (batch_size, vocab_size) containing unnormalized logits
+        targets: Tensor of shape (batch_size,) containing target class indices
+        
+    Returns:
+        Scalar tensor containing the average cross-entropy loss across the batch
+    """
+    batch_size, vocab_size = logits.shape
+    
+    # For numerical stability, subtract the max logit from each row
+    # This prevents overflow when computing exp
+    max_logits = torch.max(logits, dim=1, keepdim=True)[0]
+    logits_stable = logits - max_logits
+    
+    # Compute log-sum-exp for the denominator
+    # log(sum(exp(logits_stable))) = log(sum(exp(logits - max_logits)))
+    log_sum_exp = torch.log(torch.sum(torch.exp(logits_stable), dim=1))
+    
+    # Get the logits for the target classes
+    # logits_stable[i, targets[i]] gives the numerator logit for example i
+    target_logits = logits_stable[torch.arange(batch_size), targets]
+    
+    # Compute cross-entropy loss for each example
+    # loss = -log(softmax(logits)[target]) = -log(exp(logit_target) / sum(exp(logits)))
+    # = -logit_target + log(sum(exp(logits)))
+    # Since we subtracted max_logits, this becomes:
+    # = -(logit_target - max_logit) + log(sum(exp(logits - max_logit)))
+    # = -logit_target + max_logit + log_sum_exp
+    # But max_logit cancels out since target_logits already has max_logit subtracted
+    losses = -target_logits + log_sum_exp
+    
+    # Return the average loss across the batch
+    return torch.mean(losses)

@@ -195,3 +195,47 @@ def gradient_clipping(parameters, max_l2_norm: float) -> None:
         clip_coef = max_l2_norm / (total_norm + eps)
         for grad in gradients:
             grad.mul_(clip_coef)
+
+
+def save_checkpoint(model, optimizer, iteration, out):
+    """
+    Save model, optimizer, and iteration state to a checkpoint file.
+    
+    Args:
+        model: torch.nn.Module to save
+        optimizer: torch.optim.Optimizer to save
+        iteration: int iteration number
+        out: str | os.PathLike | BinaryIO | IO[bytes] - destination to save to
+    """
+    # Create checkpoint dictionary with all necessary state
+    checkpoint = {
+        'model_state_dict': model.state_dict(),
+        'optimizer_state_dict': optimizer.state_dict(),
+        'iteration': iteration
+    }
+    
+    # Save to file or file-like object
+    torch.save(checkpoint, out)
+
+
+def load_checkpoint(src, model, optimizer):
+    """
+    Load model, optimizer, and iteration state from a checkpoint file.
+    
+    Args:
+        src: str | os.PathLike | BinaryIO | IO[bytes] - source to load from
+        model: torch.nn.Module to restore state to
+        optimizer: torch.optim.Optimizer to restore state to
+    
+    Returns:
+        int: The iteration number from the checkpoint
+    """
+    # Load checkpoint from file or file-like object
+    checkpoint = torch.load(src)
+    
+    # Restore model and optimizer states
+    model.load_state_dict(checkpoint['model_state_dict'])
+    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+    
+    # Return the iteration number
+    return checkpoint['iteration']

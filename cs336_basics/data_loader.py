@@ -29,9 +29,7 @@ def get_batch(dataset, batch_size: int, context_length: int, device: str):
     target_sequences = []
     
     for start_idx in start_indices:
-        # Input sequence: [start_idx, start_idx + context_length)
         input_seq = dataset[start_idx:start_idx + context_length]
-        # Target sequence: [start_idx + 1, start_idx + context_length + 1)
         target_seq = dataset[start_idx + 1:start_idx + context_length + 1]
         
         input_sequences.append(input_seq)

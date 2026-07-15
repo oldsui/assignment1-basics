@@ -241,9 +241,12 @@ def load_checkpoint(src, model, optimizer):
     # Load checkpoint from file or file-like object
     checkpoint = torch.load(src)
     
-    # Restore model and optimizer states
+    # Restore model state
     model.load_state_dict(checkpoint['model_state_dict'])
-    optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+
+    # Restore optimizer state only when an optimizer is provided
+    if optimizer is not None:
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
     
     # Return the iteration number
     return checkpoint['iteration']

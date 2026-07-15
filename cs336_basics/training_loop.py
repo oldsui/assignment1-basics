@@ -104,8 +104,8 @@ def parse_args() -> argparse.Namespace:
     return parser.parse_args()
 
 
-def load_tokenized_dataset(dataset_dir: pathlib.Path) -> tuple[np.ndarray, np.ndarray]:
-    dataset_dir = dataset_dir.resolve()
+def load_tokenized_dataset(dataset_dir: pathlib.Path | str) -> tuple[np.ndarray, np.ndarray]:
+    dataset_dir = pathlib.Path(dataset_dir).resolve()
     base_name = dataset_dir.name
     train_path = dataset_dir / f"{base_name}-train-tokens.npy"
     valid_path = dataset_dir / f"{base_name}-valid-tokens.npy"

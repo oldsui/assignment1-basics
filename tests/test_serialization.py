@@ -119,3 +119,28 @@ def test_checkpointing(tmp_path):
         )
     # compare the optimizer state dicts
     assert are_optimizers_equal(original_optimizer_state, new_optimizer_state)
+
+
+def test_load_checkpoint_without_optimizer(tmp_path):
+    torch.manual_seed(42)
+    model = _TestNet(d_input=100, d_output=10)
+    optimizer = get_adamw_cls()(
+        model.parameters(),
+        lr=1e-3,
+        weight_decay=0.01,
+        betas=(0.9, 0.999),
+        eps=1e-8,
+    )
+
+    checkpoint_path = tmp_path / "checkpoint-no-optimizer.pt"
+    run_save_checkpoint(model, optimizer, iteration=3, out=checkpoint_path)
+
+    new_model = _TestNet(d_input=100, d_output=10)
+    loaded_iterations = run_load_checkpoint(src=checkpoint_path, model=new_model, optimizer=None)
+
+    assert loaded_iterations == 3
+    for key in model.state_dict().keys():
+        numpy.testing.assert_allclose(
+            model.state_dict()[key].detach().numpy(),
+            new_model.state_dict()[key].detach().numpy(),
+        )

@@ -6,6 +6,14 @@ import torch.nn as nn
 import math
 from typing import Optional
 
+def get_device() -> torch.device:
+    """Try to use Nvidia GPU or Apple Silicon GPU if possible, otherwise use CPU."""
+    if torch.cuda.is_available():
+        return torch.device("cuda:0")
+    if torch.backends.mps.is_available():
+        return torch.device("mps")
+    return torch.device("cpu")
+
 def scaled_dot_product_attention(
     Q: torch.Tensor, 
     K: torch.Tensor, 
